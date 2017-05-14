@@ -11,7 +11,7 @@ tale_width, tale_height = 500, 500            # size of tales before padding
 img_width, img_height   = tale_width + pad_width, tale_height + pad_height
 
 
-model = load_model("./cp/lions-a01-14-0.00.hdf5")
+model = load_model("./cp/lions-a02-06-0.01.hdf5")
 
 
 def eval_generator(img_dir):
@@ -35,7 +35,7 @@ def eval_generator(img_dir):
         for filename in file_names:
             img = load_img(img_dir+'/'+filename)
             width, height = img.size
-            img_resized = img.resize((4500, 3000))
+            img_resized = img.resize((4500, 3000),resample='PIL.Image.BICUBIC')
             k = 3000./float(height)
 
             # special type image to np array
@@ -60,8 +60,16 @@ for i in range(100):
     img = next(gen)
     prediction = model.predict(img, batch_size=1)
     aaa = prediction.squeeze()
-    plt.subplot(2, 1, 1)
+    plt.subplot(231)
     plt.imshow((img.squeeze()+1.)/2.)
-    plt.subplot(2, 1, 2)
+    plt.subplot(232)
+    plt.imshow(aaa[:, :, 0])
+    plt.subplot(233)
+    plt.imshow(aaa[:, :, 1])
+    plt.subplot(234)
+    plt.imshow(aaa[:, :, 2])
+    plt.subplot(235)
     plt.imshow(aaa[:, :, 3])
+    plt.subplot(236)
+    plt.imshow(aaa[:, :, 4])
     plt.show()

@@ -31,8 +31,6 @@ class UNet:
 
     def create_model(self, img_shape=None, use_model='', pop_layers=0):
 
-        # use_model could be either 'VGG16' or 'RESNET' or path to a checkpoint. Set pop_layers to the number of layers to strip
-
         # inputs = Input(shape=img_shape)
         # concat_axis = 1
 
@@ -40,27 +38,6 @@ class UNet:
         base_model = VGG16(weights="imagenet", include_top=False, input_shape=img_shape)
         print(' VGG Model loaded.')
 
-        # make the structure fully match to the crop-trained net
-        x = base_model.output
-        x = BatchNormalization()(x)
-        x = Dropout(0.25)(x)
-        x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_1')(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(6, (3, 3), activation='sigmoid', padding='valid', name='Kir_3')(x)
-        # predictions = Reshape(target_shape=(6,))(x)
-
-        base_model = Model(input=base_model.input, output=x)        # это уже совсем другая base_model
-
-        # now load weights
-        base_model.load_weights(use_model)
-
-        # remove un-neded layers
-        for i in range(pop_layers):
-            base_model.layers.pop()
-
-        print(' Custom Model loaded and trimmed.')
         # base_model.summary()
 
         # Freeze the first few layers which we don't want to train
@@ -76,7 +53,8 @@ class UNet:
             base_layer_outputs[layer.name] = layer.get_output_at(0)
             # print(layer.name)
 
-        x = base_model.output
+        # x = base_model.output
+        x = base_layer_outputs['block5_conv3']
         print_summary(base_model)
 
         # now upsampling
@@ -86,10 +64,10 @@ class UNet:
         fw_layer = Cropping2D(cropping=(ch, cw))(base_layer_outputs['block5_conv3'])
         up_conv = concatenate([up_conv1, fw_layer], axis=concat_axis)
 
-        # up_conv = Dropout(0.2)(up_conv)
+        up_conv = Dropout(0.2)(up_conv)
 
         up_conv = Conv2D(512, (3, 3), activation='elu', padding='same')(up_conv)
-        # up_conv = BatchNormalization()(up_conv)
+        up_conv = BatchNormalization()(up_conv)
         up_conv = Conv2D(512, (3, 3), activation='elu', padding='same')(up_conv)
         up_conv = BatchNormalization()(up_conv)
 
@@ -98,9 +76,9 @@ class UNet:
         fw_layer = Cropping2D(cropping=(ch, cw))(base_layer_outputs['block4_conv3'])
         up_conv = concatenate([up_conv2, fw_layer], axis=concat_axis)
 
-        # up_conv = Dropout(0.2)(up_conv)
+        up_conv = Dropout(0.2)(up_conv)
         up_conv = Conv2D(256, (3, 3), activation='elu', padding='same')(up_conv)
-        # up_conv = BatchNormalization()(up_conv)
+        up_conv = BatchNormalization()(up_conv)
         up_conv = Conv2D(256, (3, 3), activation='elu', padding='same')(up_conv)
         up_conv = BatchNormalization()(up_conv)
 
@@ -109,7 +87,7 @@ class UNet:
         fw_layer = Cropping2D(cropping=(ch, cw))(base_layer_outputs['block3_conv3'])
         up_conv = concatenate([up_conv3, fw_layer], axis=concat_axis)
 
-        # up_conv = Dropout(0.2)(up_conv)
+        up_conv = Dropout(0.2)(up_conv)
         up_conv = Conv2D(128, (3, 3), activation='elu', padding='same')(up_conv)
         up_conv = BatchNormalization()(up_conv)
         up_conv = Conv2D(128, (3, 3), activation='elu', padding='same')(up_conv)
