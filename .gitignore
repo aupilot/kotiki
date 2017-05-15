@@ -4,3 +4,5 @@ __pycache__
 cp
 logs
 plots
+train.scale.224
+train.scale.224.val
