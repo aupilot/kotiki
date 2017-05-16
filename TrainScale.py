@@ -10,6 +10,7 @@ from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import MaxPool2D, AvgPool2D
 from keras import regularizers
 from keras.preprocessing.image import load_img, img_to_array
+from keras.applications.resnet50 import preprocess_input
 
 from time import gmtime, strftime
 
@@ -74,17 +75,17 @@ def kir_train_generator(img_dir, scale_dir, batch_size=16):
 
             img = load_img(os.path.join(img_dir,filename))
             xx = img_to_array(img)
-            xx = xx/128.-1.
+            # xx = xx/128.-1.
 
             batchX[ptr,:,:,:] = xx
-            batchY[ptr] = scales[iii]-1.
+            batchY[ptr] = scales[iii]
 
             ptr = ptr + 1
 
             if ptr == batch_size:
                 # output
                 # yield batchX, np.expand_dims(batchY, axis=0)
-                yield batchX, batchY
+                yield preprocess_input(batchX), batchY
                 # yield np.zeros((16,224,224,3)), np.zeros((16,1))
                 ptr = 0
                 batchY = np.zeros((batch_size, 1))
@@ -125,13 +126,14 @@ if resumeFrom == None:
 
     pretr_layer_outputs = {}
     for layer in model_pretrained.layers:
+        layer.trainable = False
         pretr_layer_outputs[layer.name] = layer.get_output_at(0)
 
     # freeze training for a few bottom layers
-    for layer in model_pretrained.layers:
-        layer.trainable = False
-        if layer.name == 'activation_10':
-            break
+    # for layer in model_pretrained.layers[:39]:
+    #     layer.trainable = False
+        # if layer.name == 'activation_10':
+        #     break
 
     if model_pretrained.name == 'resnet50':
         x = pretr_layer_outputs['activation_49']       # we need to skip the very last layer in case of ResNet
@@ -140,14 +142,14 @@ if resumeFrom == None:
 
     # model_pretrained.summary()
 
-    x = Conv2D(512, (7, 7), activation='elu', padding='valid', name='Kir_0')(x)
+    x = Conv2D(1024, (7, 7), activation='elu', padding='valid', name='Kir_0')(x)
     # x = AvgPool2D(pool_size=(7, 7), padding='same', name='Kir_0')(x)
     # x = MaxPool2D(pool_size=(7, 7), padding='same', name='Kir_0')(x)
-    x = Dropout(0.25)(x)
+    x = Dropout(0.5)(x)
     x = BatchNormalization()(x)
-    x = Conv2D(256, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
+    x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
     x = BatchNormalization()(x)
-    x = Conv2D(1, (1, 1), activation='elu', padding='valid', name='Kir_3')(x)
+    x = Conv2D(1, (1, 1), activation='relu', padding='valid', name='Kir_3')(x)
     predictions = Reshape(target_shape=(1,))(x)
 
     # x = Flatten()(x)
@@ -174,8 +176,8 @@ if resumeFrom == None:
     #               metrics=["accuracy"],
     #               decay=0.0005)
 
-    model.compile(loss='mean_absolute_error',
-                  optimizer=optimizers.Nadam(lr=0.00002),
+    model.compile(loss='mean_squared_error',
+                  optimizer=optimizers.Nadam(lr=0.0001),
                   metrics=['accuracy'])
 
     print_summary(model)

@@ -69,7 +69,7 @@ img_width, img_height = 112, 112
 # Initiate the train and test generators
 train_datagen = ImageDataGenerator(
     validation_pct=10,
-    rescale=1./128-1,
+    # rescale=1./128-1,
     zoom_range=0.2,
     rotation_range=30.,         # degrees
     horizontal_flip=True,
@@ -78,7 +78,7 @@ train_datagen = ImageDataGenerator(
 
 # valid_datagen = ImageDataGenerator(rescale=1./255)
 valid_datagen = ImageDataGenerator(
-    rescale=1./128-1
+    # rescale=1./128-1
 )
 
 train_generator = train_datagen.flow_from_directory(
@@ -182,7 +182,7 @@ if resumeFrom == None:
             validation_steps=100,
             initial_epoch=0,
             pickle_safe=True,
-            verbose=2,
+            verbose=1,
             callbacks=[checkpoint, tensorboard])
 
     save_history(history, 'pre')
@@ -213,7 +213,7 @@ if resumeFrom == None:
             workers=2,
             initial_epoch=epochs1,
             pickle_safe=True,
-            verbose=2,
+            verbose=1,
             callbacks=[checkpoint, tensorboard])
 
     save_history(history, 'post')
@@ -242,7 +242,7 @@ else:
             workers=2,
             initial_epoch=resumeEpochFrom,
             pickle_safe=True,
-            verbose=2,
+            verbose=1,
             callbacks=[checkpoint, tensorboard])
 
     save_history(history, 'post')

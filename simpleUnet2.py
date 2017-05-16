@@ -13,6 +13,7 @@ from keras.models import Model, load_model
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard, EarlyStopping
 from keras.utils import plot_model
 from keras.utils.layer_utils import print_summary
+from keras.applications.vgg16 import preprocess_input
 
 import matplotlib.pyplot as plt
 
@@ -86,7 +87,7 @@ def kir_generator(img_dir, coord_file='',  b_size=18):
 
             # special type image to np array
             x = img_to_array(img_resized)
-            x = x/128.-1.
+            x = preprocess_input(x)
 
             # tale the picture to 6 pcs
             for cy in range(0, int(3000/tale_height)):
