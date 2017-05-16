@@ -2,21 +2,22 @@ from keras import applications
 from keras.preprocessing.image import ImageDataGenerator
 from keras import optimizers
 from keras.models import Model, load_model
-from keras.layers import Dropout, Conv2D, Reshape
+from keras.layers import Dropout, Conv2D, Reshape, Dense, Flatten
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard, EarlyStopping
 from keras.utils import plot_model
 from keras.utils.layer_utils import print_summary
 from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import MaxPool2D
-
+from keras.layers.pooling import MaxPool2D, AvgPool2D
+from keras import regularizers
 from keras.preprocessing.image import load_img, img_to_array
 
-import matplotlib.pyplot as plt
 from time import gmtime, strftime
+
 import os
 import re
+import random
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 from kir_utils import kir_save_history
 
@@ -44,6 +45,8 @@ def kir_train_generator(img_dir, scale_dir, batch_size=16):
     file_names = [f for f in os.listdir(img_dir) if re.match(r'[0-9]+.*\.jpg', f)]
     file_names = sorted(file_names, key=lambda
         item: (int(item.partition('.')[0]) if item[0].isdigit() else float('inf'), item))
+
+    random.shuffle(file_names)
 
     # csv = os.path.join(img_dir, 'coords.csv')
     # all_coords = np.genfromtxt(coord_file, delimiter=',', skip_header=1)    # pic,class,row,col
@@ -74,7 +77,7 @@ def kir_train_generator(img_dir, scale_dir, batch_size=16):
             xx = xx/128.-1.
 
             batchX[ptr,:,:,:] = xx
-            batchY[ptr] = scales[iii]
+            batchY[ptr] = scales[iii]-1.
 
             ptr = ptr + 1
 
@@ -114,48 +117,65 @@ tensorboard = TensorBoard(log_dir='./logs/scale-{}'.format(times),
 # ========= Model ==========
 if resumeFrom == None:
 
-    model_pretrained = applications.VGG16(weights ="imagenet", include_top=False, input_shape=(img_width, img_height, 3))
-    print('VGG Model loaded.')
+    # model_pretrained = applications.VGG16(weights ="imagenet", include_top=False, input_shape=(img_width, img_height, 3))
+    # print('VGG Model loaded.')
 
-    # Freeze the first 15 layers which we don't want to train
-    for layer in model_pretrained.layers[:16]:
+    model_pretrained = applications.ResNet50(weights ="imagenet", include_top=False, input_shape=(img_width, img_height, 3))
+    print('ResNet50 Model loaded.')
+
+    pretr_layer_outputs = {}
+    for layer in model_pretrained.layers:
+        pretr_layer_outputs[layer.name] = layer.get_output_at(0)
+
+    # freeze training for a few bottom layers
+    for layer in model_pretrained.layers:
         layer.trainable = False
+        if layer.name == 'activation_10':
+            break
 
-    x = model_pretrained.output
+    if model_pretrained.name == 'resnet50':
+        x = pretr_layer_outputs['activation_49']       # we need to skip the very last layer in case of ResNet
+    else:
+        x = model_pretrained.output
 
-    x = MaxPool2D(pool_size=(7, 7), padding='same', name='Kir_0')(x)
-    x = BatchNormalization()(x)
+    # model_pretrained.summary()
+
+    x = Conv2D(512, (7, 7), activation='elu', padding='valid', name='Kir_0')(x)
+    # x = AvgPool2D(pool_size=(7, 7), padding='same', name='Kir_0')(x)
+    # x = MaxPool2D(pool_size=(7, 7), padding='same', name='Kir_0')(x)
     x = Dropout(0.25)(x)
-    x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_1')(x)
     x = BatchNormalization()(x)
-    x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
+    x = Conv2D(256, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
     x = BatchNormalization()(x)
     x = Conv2D(1, (1, 1), activation='elu', padding='valid', name='Kir_3')(x)
     predictions = Reshape(target_shape=(1,))(x)
 
-    model = Model(input=model_pretrained.input, output=predictions)
+    # x = Flatten()(x)
+    # x = Dropout(0.2)(x)
+    # x = BatchNormalization()(x)
+    # x = Dense(512, activation='elu', name='Kir_FC1')(x)
+    # x = BatchNormalization()(x)
+    # x = Dense(256, activation='elu', name='Kir_FC2')(x)
+    # predictions = Dense(1, activation='linear',
+    #                     kernel_regularizer=regularizers.l2(0.01),
+    #                     activity_regularizer=regularizers.l1(0.01),
+    #                     name='Kir_FC3')(x)
 
-    # compile the model
-    # model.compile(loss='categorical_crossentropy', optimizer='adadelta', metrics=['accuracy'])
-    # model.compile(loss='categorical_crossentropy', optimizer=optimizers.Adadelta(lr=0.1, rho=0.95, epsilon=1e-08, decay=0.0005), metrics=['accuracy'])
-    # model.compile(loss = "categorical_crossentropy", optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), metrics=["accuracy"], decay=0.0005)
-
-    # model.compile(loss='categorical_crossentropy',
-    #               optimizer=optimizers.RMSprop(lr=0.00001, rho=0.9, epsilon=1e-08),
-    #               metrics=['accuracy'])
-
-    # model.compile(loss = "categorical_crossentropy",
-    #               optimizer = optimizers.SGD(lr=0.00003, momentum=0.9, nesterov=True, decay=1e-6),
-    #               metrics=["accuracy"],
-    #               decay=0.0005)
+    model = Model(model_pretrained.input, predictions)
+    # model = Model(input=model_pretrained.input, output=predictions)
 
     # model.compile(loss = "mean_absolute_error",
     #               optimizer = optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True),
     #               metrics=["accuracy"],
     #               decay=0.0005)
 
-    model.compile(loss='mean_squared_error',
-                  optimizer=optimizers.Nadam(lr=0.0001),
+    # model.compile(loss = "mean_squared_error",
+    #               optimizer = optimizers.SGD(lr=0.00001, momentum=0.9, nesterov=True),
+    #               metrics=["accuracy"],
+    #               decay=0.0005)
+
+    model.compile(loss='mean_absolute_error',
+                  optimizer=optimizers.Nadam(lr=0.00002),
                   metrics=['accuracy'])
 
     print_summary(model)
@@ -177,12 +197,12 @@ if resumeFrom == None:
 
     # ==== second stage
     # Unfreeze the first 6 layers
-    for layer in model.layers[:7]:
-        layer.trainable = True
-
-    model.compile(loss='categorical_crossentropy',
-                  optimizer=optimizers.Nadam(lr=0.000001),
-                  metrics=['accuracy'])
+    # for layer in model.layers[:7]:
+    #     layer.trainable = True
+    #
+    # model.compile(loss='categorical_crossentropy',
+    #               optimizer=optimizers.Nadam(lr=0.000001),
+    #               metrics=['accuracy'])
 
     # history = model.fit_generator(
     #         train_generator,
@@ -201,28 +221,24 @@ else:
     print('Resume training after %s\'s epoch' % resumeEpochFrom)
     model = load_model(resumeFrom)
 
-    # Unfreeze the first 5 layers
-    for layer in model.layers[:16]:
+    # Unfreeze all layers
+    for layer in model.layers:
         layer.trainable = True
 
-    model.compile(loss="categorical_crossentropy",
-                  optimizer=optimizers.SGD(lr=0.000001, momentum=0.9, nesterov=True, decay=1e-6),
-                  metrics=["accuracy"],
-                  decay=0.0005)
-    # model.compile(loss='categorical_crossentropy',
-    #               optimizer=optimizers.Adadelta(lr=0.05, rho=0.95, epsilon=1e-08, decay=0.0),
-    #               metrics=['accuracy'])
+    model.compile(loss='mean_absolute_error',
+                  optimizer=optimizers.Nadam(lr=0.000002),
+                  metrics=['accuracy'])
 
-    # history = model.fit_generator(
-    #         train_generator,
-    #         steps_per_epoch=1000,
-    #         epochs=resumeEpochs,
-    #         validation_data=validation_generator,
-    #         validation_steps=50,
-    #         workers=2,
-    #         initial_epoch=resumeEpochFrom,
-    #         pickle_safe=True,
-    #         verbose=2,
-    #         callbacks=[checkpoint, tensorboard])
-    #
-    # save_history(history, 'post')
+    # Continue training
+    history = model.fit_generator(
+        kir_train_generator(img_dir=img_dir, scale_dir=scale_dir, batch_size=batch_size),
+        steps_per_epoch=200,
+        epochs=resumeEpochs,
+        validation_data=kir_train_generator(img_dir=val_dir, scale_dir=scale_dir, batch_size=batch_size),
+        validation_steps=20,
+        initial_epoch=resumeEpochFrom,
+        pickle_safe=True,
+        verbose=1,
+        callbacks=[checkpoint, tensorboard])
+
+    kir_save_history(history, 'scale_pre')
