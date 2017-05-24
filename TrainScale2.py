@@ -24,22 +24,22 @@ import matplotlib.pyplot as plt
 from DatasetScale import ScaleDataset
 from kir_utils import kir_save_history
 
-build = 35
+build = 36
 
 # === Train a small conv net on top of vgg16 to detect lions' scale ===
 
-batch_size = 16
+batch_size = 8
 epochs1    = 40
 epochs2    = 120
 
-resumeFrom=None
-# resumeFrom='cp/31checkpoint-26-0.19.hdf5'  # <= this will trigger resuming
+#resumeFrom=None
+resumeFrom='cp/36-e038-vl0.12.hdf5'  # <= this will trigger resuming
 # resumeEpochFrom=40                   # the last trained. Will resume from resumeEpochFrom+1
 # resumeEpochs=100
 
 scale_dir = "../Sealion/TrainScale/"
 
-img_width, img_height = 224, 224        # we also set this in ScaleDataset !!!
+img_width, img_height = 224*2, 224*2        # we also set this in ScaleDataset !!!
 
 dataset = ScaleDataset(sealiondata.SeaLionData(), preprocess_input=preprocess_input_resnet, use_categorical=False)
 times = strftime("%Y%m%d-%H-%M-%S", gmtime())
@@ -55,9 +55,9 @@ times = strftime("%Y%m%d-%H-%M-%S", gmtime())
 #     os.mkdir(out_dir)
 
 # Save the model according to the conditions
-checkpoint = ModelCheckpoint(filepath='cp/{}'.format(build)+'checkpoint-{epoch:02d}-{val_loss:.2f}.hdf5',
-                             monitor='val_acc',
-                             verbose=0,
+checkpoint = ModelCheckpoint(filepath='cp/{}'.format(build)+'-e{epoch:03d}-vl{val_loss:.2f}.hdf5',
+                             monitor='val_loss',
+                             verbose=1,
                              save_best_only=True,
                              save_weights_only=False,
                              mode='auto',
@@ -74,7 +74,7 @@ early = EarlyStopping(monitor='val_acc', min_delta=0, patience=10, verbose=1, mo
 def r2_metrics(y_true, y_pred):
 	ssr = K.mean((y_pred - y_true)**2, axis=0)
 	sst = K.mean((y_pred - K.mean(K.mean(y_true)))**2,  axis=0)
-	return 1 - K.mean(ssr/sst , axis=-1)
+	return 1 - K.mean(ssr/sst, axis=-1)
 
 
 # ========= Model ==========
@@ -97,13 +97,17 @@ for layer in model_pretrained.layers[:39]:
     #     break
 
 if model_pretrained.name == 'resnet50':
-    x = pretr_layer_outputs['activation_49']       # we need to skip the very last layer in case of ResNet
+    x = pretr_layer_outputs['activation_49']       # we need to skip the very last layer in case of ResNet if 224x224
 else:
     x = model_pretrained.output
 
-# model_pretrained.summary()
+model_pretrained.summary()
 
-x = Conv2D(256, (7, 7), activation='elu', padding='valid', name='Kir_0')(x)
+x = AvgPool2D(pool_size=(14, 14), padding='same', name='Kir_Pool0')(x)
+x = Conv2D(2048, (1, 1), activation='elu', padding='valid', name='Kir_0')(x)
+
+
+# x = Conv2D(512, (7, 7), activation='elu', padding='valid', name='Kir_0')(x)
 
 # x = AvgPool2D(pool_size=(7, 7), padding='same', name='Kir_Pool0')(x)
 # x = Conv2D(2048, (1, 1), activation='elu', padding='valid', name='Kir_0')(x)
@@ -121,7 +125,7 @@ if resumeFrom is None:
     model.compile(loss='mse',
                   optimizer=optimizers.Nadam(lr=0.000005),
                   metrics=[r2_metrics])
-  				  # или исп  r2_score(y_true, y_pred, multioutput='variance_weighted')
+  				  # или исп  r2_score(y_true, y_pred, multioutput='variance_weighted') ?
 
     print_summary(model)
     plot_model(model, to_file='model.pdf', show_shapes=True)

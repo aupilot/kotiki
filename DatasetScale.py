@@ -22,7 +22,7 @@ import utils
 LionPos = namedtuple('LionPos', ['train_id', 'cls', 'row', 'col'])
 scale_dir = "../Sealion/TrainScale/"
 
-crop_size = 224
+crop_size = 224*2
 input_shape = (crop_size, crop_size, 3)
 
 scale_categories = 32
