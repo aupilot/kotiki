@@ -24,22 +24,22 @@ import matplotlib.pyplot as plt
 from DatasetScale import ScaleDataset
 from kir_utils import kir_save_history
 
-build = 36
+build = 38
 
 # === Train a small conv net on top of vgg16 to detect lions' scale ===
 
-batch_size = 8
+batch_size = 16
 epochs1    = 40
 epochs2    = 120
 
-#resumeFrom=None
-resumeFrom='cp/36-e038-vl0.12.hdf5'  # <= this will trigger resuming
+# resumeFrom=None
+resumeFrom='cp/38-e032-vl0.13.hdf5'  # <= this will trigger resuming
 # resumeEpochFrom=40                   # the last trained. Will resume from resumeEpochFrom+1
 # resumeEpochs=100
 
 scale_dir = "../Sealion/TrainScale/"
 
-img_width, img_height = 224*2, 224*2        # we also set this in ScaleDataset !!!
+img_width, img_height = 224, 224        # we also set this in ScaleDataset !!!
 
 dataset = ScaleDataset(sealiondata.SeaLionData(), preprocess_input=preprocess_input_resnet, use_categorical=False)
 times = strftime("%Y%m%d-%H-%M-%S", gmtime())
@@ -73,7 +73,7 @@ early = EarlyStopping(monitor='val_acc', min_delta=0, patience=10, verbose=1, mo
 
 def r2_metrics(y_true, y_pred):
 	ssr = K.mean((y_pred - y_true)**2, axis=0)
-	sst = K.mean((y_pred - K.mean(K.mean(y_true)))**2,  axis=0)
+	sst = K.mean((y_pred - K.mean(y_true, axis=0))**2, axis=0)
 	return 1 - K.mean(ssr/sst, axis=-1)
 
 
@@ -101,10 +101,11 @@ if model_pretrained.name == 'resnet50':
 else:
     x = model_pretrained.output
 
-model_pretrained.summary()
+# model_pretrained.summary()
 
-x = AvgPool2D(pool_size=(14, 14), padding='same', name='Kir_Pool0')(x)
-x = Conv2D(2048, (1, 1), activation='elu', padding='valid', name='Kir_0')(x)
+x = AvgPool2D(pool_size=(7, 7), padding='same', name='Kir_Pool0')(x)          # 224
+# x = AvgPool2D(pool_size=(14, 14), padding='same', name='Kir_Pool0')(x)        # for 224*2
+x = Conv2D(1024, (1, 1), activation='elu', padding='valid', name='Kir_0')(x)
 
 
 # x = Conv2D(512, (7, 7), activation='elu', padding='valid', name='Kir_0')(x)
@@ -112,9 +113,9 @@ x = Conv2D(2048, (1, 1), activation='elu', padding='valid', name='Kir_0')(x)
 # x = AvgPool2D(pool_size=(7, 7), padding='same', name='Kir_Pool0')(x)
 # x = Conv2D(2048, (1, 1), activation='elu', padding='valid', name='Kir_0')(x)
 
-# x = Dropout(0.5)(x)
+# x = Dropout(0.25)(x)
 x = BatchNormalization()(x)
-x = Conv2D(1024, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
+x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
 x = BatchNormalization()(x)
 x = Conv2D(1, (1, 1), activation='relu', padding='valid', name='Kir_3')(x)
 predictions = Reshape(target_shape=(1,))(x)
@@ -123,7 +124,7 @@ model = Model(model_pretrained.input, predictions)
 
 if resumeFrom is None:
     model.compile(loss='mse',
-                  optimizer=optimizers.Nadam(lr=0.000005),
+                  optimizer=optimizers.Nadam(lr=0.00001),
                   metrics=[r2_metrics])
   				  # или исп  r2_score(y_true, y_pred, multioutput='variance_weighted') ?
 
@@ -142,13 +143,12 @@ if resumeFrom is None:
         callbacks=[checkpoint, tensorboard])
 else:
     model.load_weights(resumeFrom)
-    model.compile(loss='mean_absolute_error',        # mean_squared_error
-                      optimizer=optimizers.Nadam(lr=0.000005),
-                      metrics=['accuracy'],
+    model.compile(loss='mse',        # mean_squared_error  mean_absolute_error
+                      optimizer=optimizers.Nadam(lr=0.000001),
+                      metrics=[r2_metrics],
                       decay=0.0005)
 
-    print_summary(model)
-    plot_model(model, to_file='model.pdf', show_shapes=True)
+    # print_summary(model)
 
     history = model.fit_generator(
         dataset.generate(batch_size=batch_size, is_training=True),
