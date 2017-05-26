@@ -29,11 +29,11 @@ build = 38
 # === Train a small conv net on top of vgg16 to detect lions' scale ===
 
 batch_size = 16
-epochs1    = 40
-epochs2    = 120
+epochs1    = 120
+epochs2    = 240
 
 # resumeFrom=None
-resumeFrom='cp/38-e032-vl0.13.hdf5'  # <= this will trigger resuming
+resumeFrom='cp/38-e112-vl0.05.hdf5'  # <= this will trigger resuming
 # resumeEpochFrom=40                   # the last trained. Will resume from resumeEpochFrom+1
 # resumeEpochs=100
 
