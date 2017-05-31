@@ -22,7 +22,7 @@ import utils
 LionPos = namedtuple('LionPos', ['train_id', 'cls', 'row', 'col'])
 scale_dir = "../Sealion/TrainScale/"
 
-crop_size = 224
+crop_size = 224*3
 input_shape = (crop_size, crop_size, 3)
 
 scale_categories = 32
@@ -131,7 +131,7 @@ class ScaleDataset:
 
     def generate(self, batch_size, is_training=True, max_extra_scale=1.4):
         step = -1
-        pool = ThreadPool(processes=8)
+        pool = ThreadPool(processes=4)
 
         samples_to_process = []  # type: [SampleCfg]
 
@@ -190,7 +190,8 @@ class ScaleDataset:
                     img=img,
                     train_idx=train_idx,
                     row=random.randint(0, img.shape[0] - self.crop_size - 2),
-                    col=random.randint(0, img.shape[1] - self.crop_size - 2)
+                    col=random.randint(0, img.shape[1] - self.crop_size - 2),
+                    scale=1.0
                 )
                 samples_to_process.append(cfg)
 
