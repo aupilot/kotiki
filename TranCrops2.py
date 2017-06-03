@@ -15,19 +15,19 @@ import os
 # === Train a small conv net on top of vgg16 ===
 from kir_utils import kir_save_history
 
-batch_size = 12
-epochs1    = 40
-epochs2    = 80
+build = 11
 
-resumeFrom=None
-#resumeFrom='cp/crops-58-0.44.hdf5'  # <= this will trigger resuming
-resumeEpochFrom=80                   # the last trained. Will resume from resumeEpochFrom+1
-resumeEpochs=120
+batch_size = 8
+epochs1    = 60
+epochs2    = 120
+
+# resumeFrom=None
+resumeFrom='cp/crops-29-0.72.hdf5'  # <= this will trigger resuming
 
 inp_dir = '../Sealion/'
 classes = ["adult_males", "subadult_males", "adult_females", "juveniles", "pups"]
 
-train_data_dir = "data/train.224"
+train_data_dir = "train.224"
 
 
 img_width, img_height = 224, 224
@@ -36,7 +36,7 @@ img_width, img_height = 224, 224
 train_datagen = ImageDataGenerator(
     validation_pct=10,
     # rescale=1./128-1,
-    zoom_range=0.2,
+    zoom_range=0.6,
     rotation_range=30.,         # degrees
     horizontal_flip=True,
     vertical_flip=True
@@ -48,13 +48,13 @@ valid_datagen = ImageDataGenerator(
 )
 
 train_generator = train_datagen.flow_from_directory(
-        'train.112',  # this is the target directory
+        train_data_dir,  # this is the target directory
         category='training',
         target_size=(img_width, img_height),  # all images will be resized to 150x150
         batch_size=batch_size,
         class_mode='categorical')  # since we use binary_crossentropy loss, we need binary labels
 validation_generator=train_datagen.flow_from_directory(
-        'train.112',        # we split out validation set automatically: https://github.com/fchollet/keras/pull/6152
+        train_data_dir,        # we split out validation set automatically: https://github.com/fchollet/keras/pull/6152
         target_size=(img_width, img_height),
         batch_size=batch_size,
         category='validation',
@@ -63,7 +63,7 @@ validation_generator=train_datagen.flow_from_directory(
 times = strftime("%Y%m%d-%H-%M-%S", gmtime())
 
 # Save the model according to the conditions
-checkpoint = ModelCheckpoint(filepath='cp/crops-{epoch:02d}-{val_loss:.2f}.hdf5',
+checkpoint = ModelCheckpoint(filepath='cp/10-crops-{epoch:02d}-{val_loss:.2f}.hdf5',
                              monitor='val_acc',
                              verbose=1,
                              save_best_only=True,
@@ -102,21 +102,22 @@ if resumeFrom == None:
 
     x = BatchNormalization()(x)
     x = Dropout(0.25)(x)
-    x = Conv2D(512, (7, 7), activation='elu', padding='valid', name='Kir_0')(x)
+    x = Conv2D(2048, (3, 3), strides=(2,2), activation='elu', padding='valid', name='Kir_01')(x)
+    x = BatchNormalization()(x)
+    x = Dropout(0.25)(x)
+    x = Conv2D(1024, (3, 3), activation='elu', padding='valid', name='Kir_02')(x)
     # x = MaxPool2D(pool_size=(7, 7), padding='same', name='Kir_Pool2')(x)
     x = BatchNormalization()(x)
     x = Dropout(0.25)(x)
-    x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_1')(x)
+    x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_10')(x)
     x = BatchNormalization()(x)
-    x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(6, (1, 1), activation='sigmoid', padding='valid', name='Kir_3')(x)   # возможно это полезно довести 3х3 до конца, чтобы задавить соседних котиков
+    x = Conv2D(6, (1, 1), activation='sigmoid', padding='valid', name='Kir_30')(x)   # возможно это полезно довести 3х3 до конца, чтобы задавить соседних котиков
     predictions = Reshape(target_shape=(6,))(x)
 
     model = Model(input=model_pretrained.input, output=predictions)
 
     model.compile(loss='categorical_crossentropy',
-                  optimizer=optimizers.Nadam(lr=0.00001),
+                  optimizer=optimizers.Nadam(lr=0.0001),
                   metrics=['accuracy'])
 
     print_summary(model)
@@ -137,26 +138,26 @@ if resumeFrom == None:
     kir_save_history(history, 'scale_pre')
 
 else:
-    print('Resume training after %s\'s epoch' % resumeEpochFrom)
+    print('Resume training after %s\'s epoch' % epochs1)
     model = load_model(resumeFrom)
 
-    # Unfreeze the first 5 layers
-    for layer in model.layers[:16]:
+    # Unfreeze all layers
+    for layer in model.layers:
         layer.trainable = True
 
     model.compile(loss='categorical_crossentropy',
-                  optimizer=optimizers.Nadam(lr=0.000001),
+                  optimizer=optimizers.Nadam(lr=0.00001),
                   metrics=['accuracy'],
                   decay=0.0005)
 
     history = model.fit_generator(
             train_generator,
             steps_per_epoch=300,
-            epochs=resumeEpochs,
+            epochs=epochs2,
             validation_data=validation_generator,
             validation_steps=30,
             workers=2,
-            initial_epoch=resumeEpochFrom,
+            initial_epoch=epochs1,
             pickle_safe=True,
             verbose=1,
             callbacks=[checkpoint, tensorboard])

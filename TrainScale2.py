@@ -24,20 +24,20 @@ import matplotlib.pyplot as plt
 from DatasetScale import ScaleDataset
 from kir_utils import kir_save_history
 
-build = 43
+build = 44
 
 # === Train a small conv net on top of vgg16 to detect lions' scale ===
 
 batch_size = 3
 epochs1    = 24
-epochs2    = 120
+epochs2    = 300
 
 # resumeFrom=None
-resumeFrom='cp/42-e032-vl0.63.hdf5'  # <= this will trigger resuming
+resumeFrom='cp/43-e083-vl0.20.hdf5'  # <= this will trigger resuming
 
 scale_dir = "../Sealion/TrainScale/"
 
-img_width, img_height = 224*3, 224*3        # we also set this in ScaleDataset !!!
+img_width, img_height = 224, 224        # we also set this in ScaleDataset !!!
 
 dataset = ScaleDataset(sealiondata.SeaLionData(), preprocess_input=preprocess_input_resnet, use_categorical=False)
 times = strftime("%Y%m%d-%H-%M-%S", gmtime())
@@ -101,15 +101,30 @@ else:
 
 # model_pretrained.summary()
 
-x = MaxPool2D(pool_size=(7, 7), padding='same', name='Kir_Pool0')(x)
 x = BatchNormalization()(x)
-x = Conv2D(256, (1, 1), activation='elu', padding='valid', name='Kir_0')(x)
-x = MaxPool2D(pool_size=(3, 3), padding='same', name='Kir_Pool2')(x)
+x = Dropout(0.25)(x)
+x = Conv2D(512, (7, 7), activation='elu', padding='valid', name='Kir_0')(x)
+# x = MaxPool2D(pool_size=(7, 7), padding='same', name='Kir_Pool2')(x)
+x = BatchNormalization()(x)
+x = Dropout(0.25)(x)
+x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_1')(x)
+x = BatchNormalization()(x)
+x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
+x = BatchNormalization(name='BN_3')(x)
+xxx = Conv2D(6, (1, 1), activation='sigmoid', padding='valid', name='Kir_3')(x)   # make it detached
+# xxx = Reshape(target_shape=(6,))(xxx)
+x = Conv2D(1, (1, 1), activation='sigmoid', padding='valid', name='Kir_3_new')(x)
+predictions = Reshape(target_shape=(1,))(x)
+
+# x = MaxPool2D(pool_size=(7, 7), padding='same', name='Kir_Pool0')(x)
+# x = BatchNormalization()(x)
+# x = Conv2D(256, (1, 1), activation='elu', padding='valid', name='Kir_0')(x)
+# x = MaxPool2D(pool_size=(3, 3), padding='same', name='Kir_Pool2')(x)
 # x = BatchNormalization()(x)
 # x = Conv2D(256, (1, 1), activation='elu', padding='valid', name='Kir_2')(x)
 # x = BatchNormalization()(x)
-x = Conv2D(1, (1, 1), activation='relu', padding='valid', name='Kir_3')(x)
-predictions = Reshape(target_shape=(1,))(x)
+# x = Conv2D(1, (1, 1), activation='relu', padding='valid', name='Kir_3')(x)
+# predictions = Reshape(target_shape=(1,))(x)
 
 model = Model(model_pretrained.input, predictions)
 
@@ -137,7 +152,7 @@ if resumeFrom is None:
         verbose=1,
         callbacks=[checkpoint, tensorboard])
 else:
-    model.load_weights(resumeFrom)
+    model.load_weights(resumeFrom, by_name=True)
 
     # un-freeze training for a few bottom layers
     for layer in model.layers[:39]:
