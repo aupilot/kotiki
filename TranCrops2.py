@@ -18,11 +18,11 @@ from kir_utils import kir_save_history
 build = 11
 
 batch_size = 8
-epochs1    = 60
-epochs2    = 120
+epochs1    = 120
+epochs2    = 240
 
 # resumeFrom=None
-resumeFrom='cp/crops-29-0.72.hdf5'  # <= this will trigger resuming
+resumeFrom='cp/10-crops-90-0.51.hdf5'  # <= this will trigger resuming
 
 inp_dir = '../Sealion/'
 classes = ["adult_males", "subadult_males", "adult_females", "juveniles", "pups"]
@@ -63,7 +63,7 @@ validation_generator=train_datagen.flow_from_directory(
 times = strftime("%Y%m%d-%H-%M-%S", gmtime())
 
 # Save the model according to the conditions
-checkpoint = ModelCheckpoint(filepath='cp/10-crops-{epoch:02d}-{val_loss:.2f}.hdf5',
+checkpoint = ModelCheckpoint(filepath='cp/11-crops-{epoch:02d}-{val_loss:.2f}.hdf5',
                              monitor='val_acc',
                              verbose=1,
                              save_best_only=True,
@@ -146,7 +146,7 @@ else:
         layer.trainable = True
 
     model.compile(loss='categorical_crossentropy',
-                  optimizer=optimizers.Nadam(lr=0.00001),
+                  optimizer=optimizers.Nadam(lr=0.000002),
                   metrics=['accuracy'],
                   decay=0.0005)
 
@@ -163,3 +163,10 @@ else:
             callbacks=[checkpoint, tensorboard])
 
     kir_save_history(history, 'scale_pre')
+
+"""
+LR protocol:
+1...60   0.0001
+61..120  0.00001
+121..240 0.000002
+"""
