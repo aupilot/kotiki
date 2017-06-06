@@ -22,8 +22,8 @@ import utils
 LionPos = namedtuple('LionPos', ['train_id', 'cls', 'row', 'col'])
 scale_dir = "../Sealion/TrainScale/"
 
-crop_size = 224
-input_shape = (crop_size, crop_size, 3)
+# crop_size = 112
+# input_shape = (crop_size, crop_size, 3)
 
 scale_categories = 32
 crops_count = 513
@@ -55,7 +55,8 @@ class SampleCfg:
         return True
 
 class ScaleDataset:
-    def __init__(self, core_dataset, preprocess_input, use_categorical=False, scale_dataset_dir='../Sealion/TrainScale/'):
+    def __init__(self, core_dataset, preprocess_input, use_categorical=False, scale_dataset_dir='../Sealion/TrainScale/', crop_size=224):
+        input_shape = (crop_size, crop_size, 3)
         self.core_dataset = core_dataset
         self.all_items = []
         self.crop_size = input_shape[0]
@@ -130,8 +131,9 @@ class ScaleDataset:
             return img_scale * cfg.scale
 
     def generate(self, batch_size, is_training=True, max_extra_scale=1.4):
+        threads = 4
         step = -1
-        pool = ThreadPool(processes=4)
+        pool = ThreadPool(processes=threads)
 
         samples_to_process = []  # type: [SampleCfg]
 
@@ -140,14 +142,14 @@ class ScaleDataset:
                 return random.random()
             return 0.5
 
-        images_to_keep = 8
+        images_to_keep = threads
         loaded_items = []
         test_img_id = 0
         while True:
             step += 1
 
-            # keep 8 images loaded and replace one each 8 steps
-            if len(loaded_items) < images_to_keep or step % 8 == 0:
+            # keep 8 images loaded and replace one each threads (8) steps
+            if len(loaded_items) < images_to_keep or step % threads == 0:
                 if len(loaded_items) == images_to_keep:
                     loaded_items.pop(0)
 

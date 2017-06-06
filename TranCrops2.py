@@ -16,25 +16,25 @@ import os
 from kir_utils import kir_save_history
 
 batch_size = 8
-epochs1    = 120
+epochs1    = 16
 epochs2    = 240
 
-# resumeFrom=None
-resumeFrom='cp/12-crops-67-0.43.hdf5'  # <= this will trigger resuming
+resumeFrom=None
+# resumeFrom='cp/12-crops-67-0.43.hdf5'  # <= this will trigger resuming
 
-inp_dir = '../Sealion/'
-classes = ["adult_males", "subadult_males", "adult_females", "juveniles", "pups"]
+# inp_dir = '../Sealion/'
+# classes = ["adult_males", "subadult_males", "adult_females", "juveniles", "pups"]
 
-train_data_dir = "train.224"
+train_data_dir = "train.112"
 
 
-img_width, img_height = 224, 224
+img_width, img_height = 112, 112
 
 # Initiate the train and test generators
 train_datagen = ImageDataGenerator(
-    validation_pct=10,
+    validation_pct=15,
     # rescale=1./128-1,
-    zoom_range=0.5,
+    zoom_range=0.4,
     rotation_range=0.,         # degrees
     horizontal_flip=True,
     vertical_flip=True
@@ -61,7 +61,7 @@ validation_generator=train_datagen.flow_from_directory(
 times = strftime("%Y%m%d-%H-%M-%S", gmtime())
 
 # Save the model according to the conditions
-checkpoint = ModelCheckpoint(filepath='cp/12-crops-{epoch:02d}-{val_loss:.2f}.hdf5',
+checkpoint = ModelCheckpoint(filepath='cp/13-crops-{epoch:02d}-{val_loss:.2f}.hdf5',
                              monitor='val_acc',
                              verbose=1,
                              save_best_only=True,
@@ -101,13 +101,10 @@ if resumeFrom == None:
     x = BatchNormalization()(x)
     x = Dropout(0.25)(x)
     x = Conv2D(2048, (3, 3), strides=(2,2), activation='elu', padding='valid', name='Kir_01')(x)
-    x = BatchNormalization()(x)
-    x = Dropout(0.25)(x)
-    x = Conv2D(1024, (3, 3), activation='elu', padding='valid', name='Kir_02')(x)
     # x = MaxPool2D(pool_size=(7, 7), padding='same', name='Kir_Pool2')(x)
     x = BatchNormalization()(x)
     x = Dropout(0.25)(x)
-    x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_10')(x)
+    x = Conv2D(2048, (1, 1), activation='elu', padding='valid', name='Kir_10')(x)
     x = BatchNormalization()(x)
     x = Conv2D(6, (1, 1), activation='softmax', padding='valid', name='Kir_30')(x)   # возможно это полезно довести 3х3 до конца, чтобы задавить соседних котиков
     predictions = Reshape(target_shape=(6,))(x)

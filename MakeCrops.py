@@ -21,9 +21,9 @@ def makeSquare(thumb, lionSize):
                        cv2.BORDER_REFLECT_101)
     return thumb
 
-lion_size = 224
+lion_size = 112
 
-out_dir_classes = False               #  use classification dir structure (for built-in classification generatior)
+out_dir_classes = True               #  use classification dir structure (for built-in classification generatior)
 out_dir = "./train."+str(lion_size)+"/" if out_dir_classes else "./train.scale."+str(lion_size)+"/"
 
 inp_dir = '../Sealion/'
@@ -46,13 +46,18 @@ file_names = sorted(file_names, key=lambda
 ds_store = ".DS_Store"
 if ds_store in file_names: file_names.remove(ds_store)
 
+
 # select a subset of files to run on
-file_names = file_names[1:-1]
+# file_names = file_names[1:-1]
 
 # dataframe to store results in
 # coordinates_df = pd.DataFrame(index=file_names, columns=classes)
 
 for filename in file_names:
+
+    if 'jpg' not in filename:
+        continue
+
     # read a Train image
     image = cv2.imread(inp_dir + "Train/" + filename)
     height, width, channels = np.shape(image)
@@ -90,7 +95,7 @@ for filename in file_names:
                 # plt.show(block=False)
 
                 if out_dir_classes:
-                    cv2.imwrite(out_dir + lion_class + str(fileNo) + "_" + str(iii) + ".jpg", thumb)
+                    cv2.imwrite(out_dir + lion_class + '/' + str(fileNo) + "_" + str(iii) + ".jpg", thumb)
                 else:
                     cv2.imwrite(out_dir + str(fileNo) + "_" + str(num) + ".jpg", thumb)
 
@@ -121,7 +126,7 @@ for filename in file_names:
                         # make it square if not
                         if np.shape(thumb) != (lion_size, lion_size, 3):
                             thumb = makeSquare(thumb, lion_size)
-                        cv2.imwrite(out_dir + lion_class + str(fileNo) + "_" + str(iii) + ".jpg", thumb)
+                        cv2.imwrite(out_dir + lion_class + '/' + str(fileNo) + "_" + str(iii) + ".jpg", thumb)
                     else:
                         # if not square - discard
                         if np.shape(thumb) != (lion_size, lion_size, 3):
@@ -143,7 +148,7 @@ for filename in file_names:
                             # make it square if not
                             if np.shape(thumb) != (lion_size, lion_size, 3):
                                 thumb = makeSquare(thumb, lion_size)
-                            cv2.imwrite(out_dir + lion_class + str(fileNo) + "_" + str(iii) + ".jpg", thumb)
+                            cv2.imwrite(out_dir + lion_class + '/' + str(fileNo) + "_" + str(iii) + ".jpg", thumb)
                         else:
                             # if not square - discard
                             if np.shape(thumb) != (lion_size, lion_size, 3):
