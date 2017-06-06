@@ -15,14 +15,12 @@ import os
 # === Train a small conv net on top of vgg16 ===
 from kir_utils import kir_save_history
 
-build = 11
-
 batch_size = 8
 epochs1    = 120
 epochs2    = 240
 
 # resumeFrom=None
-resumeFrom='cp/10-crops-90-0.51.hdf5'  # <= this will trigger resuming
+resumeFrom='cp/12-crops-67-0.43.hdf5'  # <= this will trigger resuming
 
 inp_dir = '../Sealion/'
 classes = ["adult_males", "subadult_males", "adult_females", "juveniles", "pups"]
@@ -36,8 +34,8 @@ img_width, img_height = 224, 224
 train_datagen = ImageDataGenerator(
     validation_pct=10,
     # rescale=1./128-1,
-    zoom_range=0.6,
-    rotation_range=30.,         # degrees
+    zoom_range=0.5,
+    rotation_range=0.,         # degrees
     horizontal_flip=True,
     vertical_flip=True
 )
@@ -63,7 +61,7 @@ validation_generator=train_datagen.flow_from_directory(
 times = strftime("%Y%m%d-%H-%M-%S", gmtime())
 
 # Save the model according to the conditions
-checkpoint = ModelCheckpoint(filepath='cp/11-crops-{epoch:02d}-{val_loss:.2f}.hdf5',
+checkpoint = ModelCheckpoint(filepath='cp/12-crops-{epoch:02d}-{val_loss:.2f}.hdf5',
                              monitor='val_acc',
                              verbose=1,
                              save_best_only=True,
@@ -111,13 +109,13 @@ if resumeFrom == None:
     x = Dropout(0.25)(x)
     x = Conv2D(512, (1, 1), activation='elu', padding='valid', name='Kir_10')(x)
     x = BatchNormalization()(x)
-    x = Conv2D(6, (1, 1), activation='sigmoid', padding='valid', name='Kir_30')(x)   # возможно это полезно довести 3х3 до конца, чтобы задавить соседних котиков
+    x = Conv2D(6, (1, 1), activation='softmax', padding='valid', name='Kir_30')(x)   # возможно это полезно довести 3х3 до конца, чтобы задавить соседних котиков
     predictions = Reshape(target_shape=(6,))(x)
 
     model = Model(input=model_pretrained.input, output=predictions)
 
     model.compile(loss='categorical_crossentropy',
-                  optimizer=optimizers.Nadam(lr=0.0001),
+                  optimizer=optimizers.Nadam(lr=0.00001),
                   metrics=['accuracy'])
 
     print_summary(model)
@@ -146,7 +144,7 @@ else:
         layer.trainable = True
 
     model.compile(loss='categorical_crossentropy',
-                  optimizer=optimizers.Nadam(lr=0.000002),
+                  optimizer=optimizers.Nadam(lr=0.000001),
                   metrics=['accuracy'],
                   decay=0.0005)
 
@@ -166,7 +164,7 @@ else:
 
 """
 LR protocol:
-1...60   0.0001
-61..120  0.00001
-121..240 0.000002
+1...60   0.00001
+61..120  0.000001
+
 """
